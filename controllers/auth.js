@@ -41,6 +41,11 @@ exports.getSignup = (req, res, next) => {
     path: '/signup',
     pageTitle: 'Singup',
     errorMessage: message,
+    oldInput: {
+      email: '',
+      password: '',
+      confirmPassword: ''
+    }
   });
 };
 
@@ -50,10 +55,10 @@ exports.postLogin = (req, res, next) => {
 
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.render('auth/login', {
+    return res.status(422).render('auth/login', {
       path: '/login',
       pageTitle: 'Login',
-      errorMessage: errors.array()[0].msg
+      errorMessage: errors.array()[0].msg,
     });
   }
   User.findOne({ email: email })
@@ -94,7 +99,12 @@ exports.postSignup = (req, res, next) => {
     return res.status(422).render('auth/signup', {
       path: '/signup',
       pageTitle: 'Singup',
-      errorMessage: errors.array()[0].msg
+      errorMessage: errors.array()[0].msg,
+      oldInput: {
+        email: email,
+        password: password,
+        confirmPassword: req.body.confirmPassword,
+      },
     });
   }
   return bcrypt
@@ -209,23 +219,22 @@ exports.postNewPassword = (req, res, next) => {
   const passwordToken = req.body.passwordToken;
   let resetUser;
 
-  User
-    .findOne({
-      resetToken: passwordToken,
-      resetTokenExpiration: { $gt: Date.now() },
-      _id: userId,
-    })
+  User.findOne({
+    resetToken: passwordToken,
+    resetTokenExpiration: { $gt: Date.now() },
+    _id: userId,
+  })
     .then((user) => {
       resetUser = user;
       return bcrypt.hash(newPassword, 12);
     })
-    .then(hashedPassword => {
+    .then((hashedPassword) => {
       resetUser.password = hashedPassword;
       resetUser.resetToken = undefined;
       resetUser.resetTokenExpiration = undefined;
       return resetUser.save();
     })
-    .then(result => {
+    .then((result) => {
       res.redirect('/login');
     })
     .catch((err) => {
